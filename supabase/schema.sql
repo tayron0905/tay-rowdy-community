@@ -63,6 +63,30 @@ create table if not exists public.announcements (
   created_at timestamptz not null default now()
 );
 
+-- Der Inhaber-Status wird ausschließlich serverseitig aus der Admin-Tabelle abgeleitet.
+alter table public.posts add column if not exists is_owner boolean not null default false;
+alter table public.comments add column if not exists is_owner boolean not null default false;
+
+create or replace function public.mark_community_owner()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $function$
+begin
+  new.is_owner := public.is_admin();
+  return new;
+end
+$function$;
+
+drop trigger if exists posts_mark_owner on public.posts;
+create trigger posts_mark_owner before insert on public.posts
+for each row execute function public.mark_community_owner();
+
+drop trigger if exists comments_mark_owner on public.comments;
+create trigger comments_mark_owner before insert on public.comments
+for each row execute function public.mark_community_owner();
+
 create index if not exists posts_created_at_idx on public.posts (created_at desc);
 create index if not exists comments_post_created_at_idx on public.comments (post_id, created_at);
 create index if not exists questions_created_at_idx on public.questions (created_at desc);
@@ -181,6 +205,13 @@ begin
   end if;
 end
 $policies$;
+
+-- Unbeantwortete Fragen sind privat und nur für Admins sichtbar.
+drop policy if exists "alle lesen" on public.questions;
+drop policy if exists "fragen lesen: beantwortet oder admin" on public.questions;
+create policy "fragen lesen: beantwortet oder admin" on public.questions
+  for select to anon, authenticated
+  using (answered_at is not null or public.is_admin());
 
 do $realtime$
 begin

@@ -10,6 +10,7 @@ let supabase = null;
 let channel = null;
 let activeView = 'home';
 let currentUser = null;
+let isAdmin = false;
 let posts = [];
 let questions = [];
 let announcements = [];
@@ -130,7 +131,7 @@ function renderAnnouncements() {
 function renderCommunity() {
   const target = document.querySelector('#view-community');
   target.innerHTML = `<section class="page-heading wrap"><div class="eyebrow"><span class="status-dot"></span> COMMUNITY BOARD</div><h1>Hier bist <em>du dran.</em></h1><p>Teile, was dich beschäftigt. Frag die Community. Bleib respektvoll.</p></section>
-    <section class="community-layout wrap"><div class="feed-column"><form class="compose-card" id="post-form"><div class="compose-top"><div class="compose-avatar">${initialFor(getSavedName() || 'Du')}</div><div><strong>Was geht dir durch den Kopf?</strong><span>Dein Beitrag ist öffentlich sichtbar.</span></div></div><label class="sr-only" for="post-name">Dein Benutzername</label><input id="post-name" name="username" maxlength="24" minlength="2" placeholder="Dein Name in der Community" value="${escapeHtml(getSavedName())}" required /><label class="sr-only" for="post-content">Dein Beitrag</label><textarea id="post-content" name="content" maxlength="1000" rows="4" placeholder="Schreib der Community etwas …" required></textarea><div class="compose-bottom"><span class="char-count" data-count="post-content">0 / 1000</span><button class="button button-primary" type="submit">Beitrag teilen <span>↗</span></button></div></form><div class="feed-toolbar"><h2>Community-Feed</h2><span class="feed-live"><i></i> LIVE</span></div><div id="post-feed" class="post-feed">${loading()}</div></div><aside class="sidebar"><div class="side-card side-accent"><div class="side-symbol">✳</div><div class="eyebrow">GUTER VIBE ONLY</div><h3>Wir machen den Raum gemeinsam.</h3><p>Sei freundlich, bleib fair und gib allen die Chance, sich wohlzufühlen.</p><a href="#regeln" data-view="regeln" class="text-link">Alle Regeln ansehen <span>→</span></a></div><div class="side-card"><div class="eyebrow">FRAGE AN TAY?</div><h3>Immer her damit.</h3><p>Im Fragenbereich kannst du direkt eine Frage stellen – auch anonym.</p><a class="button button-outline" href="#fragen" data-view="fragen">Frag mich! <span>↗</span></a></div><div class="side-card"><div class="eyebrow">AUCH AUF TIKTOK</div><h3>@${escapeHtml(config.tiktokHandle)}</h3><a class="text-link" href="${escapeHtml(config.tiktokUrl)}" target="_blank" rel="noopener noreferrer">Zum Profil <span>↗</span></a></div></aside></section>`;
+    <section class="community-layout wrap"><div class="feed-column"><form class="compose-card" id="post-form"><div class="compose-top"><div class="compose-avatar">${initialFor(isAdmin ? 'Tayron' : getSavedName() || 'Du')}</div><div><strong>Was geht dir durch den Kopf?</strong><span>${isAdmin ? 'Du schreibst als Website-Inhaber.' : 'Dein Beitrag ist öffentlich sichtbar.'}</span></div></div><label class="sr-only" for="post-name">Dein Benutzername</label><input id="post-name" name="username" maxlength="24" minlength="2" placeholder="Dein Name in der Community" value="${escapeHtml(isAdmin ? 'Tayron' : getSavedName())}" ${isAdmin ? 'readonly' : ''} required /><label class="sr-only" for="post-content">Dein Beitrag</label><textarea id="post-content" name="content" maxlength="1000" rows="4" placeholder="Schreib der Community etwas …" required></textarea><div class="compose-bottom"><span class="char-count" data-count="post-content">0 / 1000</span><button class="button button-primary" type="submit">Beitrag teilen <span>↗</span></button></div></form><div class="feed-toolbar"><h2>Community-Feed</h2><span class="feed-live"><i></i> LIVE</span></div><div id="post-feed" class="post-feed">${loading()}</div></div><aside class="sidebar"><div class="side-card side-accent"><div class="side-symbol">✳</div><div class="eyebrow">GUTER VIBE ONLY</div><h3>Wir machen den Raum gemeinsam.</h3><p>Sei freundlich, bleib fair und gib allen die Chance, sich wohlzufühlen.</p><a href="#regeln" data-view="regeln" class="text-link">Alle Regeln ansehen <span>→</span></a></div><div class="side-card"><div class="eyebrow">FRAGE AN TAY?</div><h3>Immer her damit.</h3><p>Im Fragenbereich kannst du direkt eine Frage stellen – auch anonym.</p><a class="button button-outline" href="#fragen" data-view="fragen">Frag mich! <span>↗</span></a></div><div class="side-card"><div class="eyebrow">AUCH AUF TIKTOK</div><h3>@${escapeHtml(config.tiktokHandle)}</h3><a class="text-link" href="${escapeHtml(config.tiktokUrl)}" target="_blank" rel="noopener noreferrer">Zum Profil <span>↗</span></a></div></aside></section>`;
   attachFormCounters();
   document.querySelector('#post-form').addEventListener('submit', submitPost);
   loadPosts();
@@ -167,7 +168,7 @@ function renderPostFeed() {
     const replies = comments.filter((item) => item.post_id === post.id);
     const postLikes = likes.filter((item) => item.post_id === post.id);
     const liked = postLikes.some((item) => item.client_id === clientId);
-    return `<article class="post-card" data-post="${post.id}"><div class="post-head"><div class="post-avatar">${initialFor(post.username)}</div><div class="post-author"><strong>${escapeHtml(post.username)}</strong><span>${relativeDate(post.created_at)}</span></div>${currentUser ? `<button class="icon-button delete-post" data-id="${post.id}" aria-label="Beitrag moderieren">···</button>` : ''}</div><p class="post-body">${escapeHtml(post.content)}</p><div class="post-actions"><button class="reaction-button ${liked ? 'is-liked' : ''}" data-like="${post.id}" aria-label="Beitrag liken"><span>${liked ? '♥' : '♡'}</span> ${postLikes.length} Likes</button><button class="reaction-button" data-comments="${post.id}">↩ ${replies.length} Antworten</button></div><div class="comment-list">${replies.map((reply) => `<div class="comment"><span class="comment-avatar">${initialFor(reply.username)}</span><p><strong>${escapeHtml(reply.username)}</strong> ${escapeHtml(reply.content)}<small>${relativeDate(reply.created_at)}</small></p>${currentUser ? `<button class="delete-comment" data-id="${reply.id}" aria-label="Antwort löschen">×</button>` : ''}</div>`).join('')}</div><form class="reply-form" data-reply="${post.id}"><input name="username" maxlength="24" minlength="2" value="${escapeHtml(getSavedName())}" placeholder="Dein Name" aria-label="Dein Name" required /><input name="content" maxlength="500" placeholder="Antworte auf diesen Beitrag …" aria-label="Deine Antwort" required /><button aria-label="Antwort senden" type="submit">↑</button></form></article>`;
+    return `<article class="post-card" data-post="${post.id}"><div class="post-head"><div class="post-avatar">${initialFor(post.username)}</div><div class="post-author"><strong>${escapeHtml(post.username)}${post.is_owner ? ' <span class="owner-badge">WEBSITE-INHABER</span>' : ''}</strong><span>${relativeDate(post.created_at)}</span></div>${currentUser ? `<button class="icon-button delete-post" data-id="${post.id}" aria-label="Beitrag moderieren">···</button>` : ''}</div><p class="post-body">${escapeHtml(post.content)}</p><div class="post-actions"><button class="reaction-button ${liked ? 'is-liked' : ''}" data-like="${post.id}" aria-label="Beitrag liken"><span>${liked ? '♥' : '♡'}</span> ${postLikes.length} Likes</button><button class="reaction-button" data-comments="${post.id}">↩ ${replies.length} Antworten</button></div><div class="comment-list">${replies.map((reply) => `<div class="comment"><span class="comment-avatar">${initialFor(reply.username)}</span><p><strong>${escapeHtml(reply.username)}${reply.is_owner ? ' <span class="owner-badge">INHABER</span>' : ''}</strong> ${escapeHtml(reply.content)}<small>${relativeDate(reply.created_at)}</small></p>${currentUser ? `<button class="delete-comment" data-id="${reply.id}" aria-label="Antwort löschen">×</button>` : ''}</div>`).join('')}</div><form class="reply-form" data-reply="${post.id}"><input name="username" maxlength="24" minlength="2" value="${escapeHtml(isAdmin ? 'Tayron' : getSavedName())}" placeholder="Dein Name" aria-label="Dein Name" ${isAdmin ? 'readonly' : ''} required /><input name="content" maxlength="500" placeholder="Antworte auf diesen Beitrag …" aria-label="Deine Antwort" required /><button aria-label="Antwort senden" type="submit">↑</button></form></article>`;
   }).join('');
   feed.querySelectorAll('[data-like]').forEach((button) => button.addEventListener('click', () => addLike(button.dataset.like)));
   feed.querySelectorAll('[data-reply]').forEach((form) => form.addEventListener('submit', submitComment));
@@ -182,7 +183,7 @@ async function submitPost(event) {
   if (!supabase) return toast('Bitte zuerst Supabase in src/config.js einrichten.', 'error');
   const form = event.currentTarget;
   const data = new FormData(form);
-  const username = String(data.get('username') || '').trim();
+  const username = isAdmin ? 'Tayron' : String(data.get('username') || '').trim();
   const content = String(data.get('content') || '').trim();
   if (username.length < 2 || !content) return toast('Bitte gib einen Namen und einen Beitrag ein.', 'error');
   setBusy(true);
@@ -202,7 +203,7 @@ async function submitComment(event) {
   if (!supabase || busy) return;
   const form = event.currentTarget;
   const data = new FormData(form);
-  const username = String(data.get('username') || '').trim();
+  const username = isAdmin ? 'Tayron' : String(data.get('username') || '').trim();
   const content = String(data.get('content') || '').trim();
   if (username.length < 2 || !content) return toast('Bitte gib einen Namen und eine Antwort ein.', 'error');
   setBusy(true);
@@ -230,7 +231,7 @@ async function deleteRow(table, id, label) {
   if (error) return toast(userError(error), 'error');
   toast(`${label} wurde entfernt.`);
   if (table === 'posts' || table === 'comments') await loadPosts();
-  if (table === 'questions') await loadQuestions();
+  if (table === 'questions') { await loadQuestions(); await loadAdminQuestions(); }
   if (table === 'announcements') await loadAnnouncements();
 }
 
@@ -248,7 +249,7 @@ async function loadQuestions() {
   const list = document.querySelector('#question-list');
   if (!list) return;
   if (!supabase) { list.innerHTML = setupMessage(); return; }
-  const { data, error } = await supabase.from('questions').select('*').order('created_at', { ascending: false }).limit(80);
+  const { data, error } = await supabase.from('questions').select('*').not('answered_at', 'is', null).order('created_at', { ascending: false }).limit(80);
   if (error) { list.innerHTML = errorMessage(error.message); return; }
   questions = data || [];
   renderQuestionList();
@@ -292,15 +293,17 @@ async function answerQuestion(id) {
   if (error) return toast(userError(error), 'error');
   toast('Deine Antwort ist veröffentlicht.');
   await loadQuestions();
+  await loadAdminQuestions();
 }
 
 function renderAdmin() {
   const target = document.querySelector('#view-admin');
   if (currentUser) {
-    target.innerHTML = `<section class="page-heading wrap"><div class="eyebrow"><span class="status-dot"></span> ADMINISTRATION</div><h1>Dein <em>Kontrollraum.</em></h1><p>Angemeldet als ${escapeHtml(currentUser.email || 'Administrator')} <button class="text-link" id="logout-button">Abmelden <span>↗</span></button></p></section><section class="admin-layout wrap"><form class="admin-card" id="announcement-form"><div class="eyebrow">NEUE ANKÜNDIGUNG</div><label class="field-label" for="announcement-title">Titel</label><input id="announcement-title" name="title" maxlength="100" required /><label class="field-label" for="announcement-body">Text</label><textarea id="announcement-body" name="body" maxlength="1000" rows="4" required></textarea><button class="button button-primary" type="submit">Veröffentlichen <span>↗</span></button></form><div class="admin-card"><div class="eyebrow">ÜBERSICHT</div><h2>Moderation</h2><p>Löschen kannst du Beiträge und Antworten direkt im Community-Feed. Fragen lassen sich im Fragenbereich beantworten oder entfernen.</p><button class="button button-outline" data-view="community">Zum Feed <span>↗</span></button> <button class="button button-outline" data-view="fragen">Zu den Fragen <span>↗</span></button></div><div class="admin-card"><div class="eyebrow">ANKÜNDIGUNGEN</div><div id="admin-announcements"></div></div></section>`;
+    target.innerHTML = `<section class="page-heading wrap"><div class="eyebrow"><span class="status-dot"></span> ADMINISTRATION</div><h1>Dein <em>Kontrollraum.</em></h1><p>Angemeldet als ${escapeHtml(currentUser.email || 'Administrator')} · Eigentümer <button class="text-link" id="logout-button">Abmelden <span>↗</span></button></p></section><section class="admin-layout wrap"><div class="admin-card admin-inbox"><div class="eyebrow">FRAGEN AN DICH</div><h2>Dein Posteingang</h2><p>Nur du kannst unbeantwortete Fragen sehen. Antworten werden danach öffentlich angezeigt.</p><div id="admin-question-list" class="question-list">${loading()}</div></div><form class="admin-card" id="announcement-form"><div class="eyebrow">NEUE ANKÜNDIGUNG</div><label class="field-label" for="announcement-title">Titel</label><input id="announcement-title" name="title" maxlength="100" required /><label class="field-label" for="announcement-body">Text</label><textarea id="announcement-body" name="body" maxlength="1000" rows="4" required></textarea><button class="button button-primary" type="submit">Veröffentlichen <span>↗</span></button></form><div class="admin-card"><div class="eyebrow">ÜBERSICHT</div><h2>Moderation</h2><p>Löschen kannst du Beiträge und Antworten direkt im Community-Feed.</p><button class="button button-outline" data-view="community">Zum Feed <span>↗</span></button></div><div class="admin-card"><div class="eyebrow">ANKÜNDIGUNGEN</div><div id="admin-announcements"></div></div></section>`;
     document.querySelector('#logout-button').addEventListener('click', signOut);
     document.querySelector('#announcement-form').addEventListener('submit', submitAnnouncement);
     renderAdminAnnouncements();
+    loadAdminQuestions();
     return;
   }
   target.innerHTML = `<section class="page-heading wrap"><div class="eyebrow">GESCHÜTZTER BEREICH</div><h1>Admin <em>Login</em></h1><p>Melde dich mit deinem Supabase-Administrator-Konto an.</p></section><section class="login-wrap wrap"><form class="admin-card login-card" id="login-form"><label class="field-label" for="admin-email">E-Mail</label><input id="admin-email" name="email" type="email" autocomplete="username" required /><label class="field-label" for="admin-password">Passwort</label><input id="admin-password" name="password" type="password" autocomplete="current-password" required /><button class="button button-primary" type="submit">Anmelden <span>↗</span></button><p class="form-note">Der Zugriff wird durch Supabase Auth und Datenbankregeln geprüft.</p></form>${!isConfigured ? setupMessage() : ''}</section>`;
@@ -325,6 +328,17 @@ async function signIn(event) {
   currentUser = result.user;
   toast('Du bist angemeldet.');
   navigate('admin');
+}
+
+async function loadAdminQuestions() {
+  const list = document.querySelector('#admin-question-list');
+  if (!list || !supabase || !currentUser) return;
+  const { data, error } = await supabase.from('questions').select('*').order('created_at', { ascending: false }).limit(100);
+  if (error) { list.innerHTML = errorMessage(error.message); return; }
+  if (!data?.length) { list.innerHTML = '<div class="empty-state"><p>Dein Posteingang ist leer.</p></div>'; return; }
+  list.innerHTML = data.map((item) => `<article class="question-card"><div class="question-meta"><strong>${item.username ? escapeHtml(item.username) : 'Anonym'}</strong><time>${relativeDate(item.created_at)}</time></div><p class="question-text">${escapeHtml(item.question)}</p>${item.answer ? `<div class="answer-box"><strong>Deine Antwort</strong><p>${escapeHtml(item.answer)}</p></div>` : `<button class="button button-primary admin-answer" data-id="${item.id}">Antwort schreiben</button>`}<button class="delete-question" data-id="${item.id}">Frage löschen</button></article>`).join('');
+  list.querySelectorAll('.admin-answer').forEach((button) => button.addEventListener('click', () => answerQuestion(button.dataset.id)));
+  list.querySelectorAll('.delete-question').forEach((button) => button.addEventListener('click', () => deleteRow('questions', button.dataset.id, 'Frage')));
 }
 
 async function signOut() {
@@ -397,10 +411,13 @@ async function initialize() {
     supabase = createClient(config.supabaseUrl, config.supabaseAnonKey);
     const { data } = await supabase.auth.getSession();
     currentUser = data.session?.user || null;
-    supabase.auth.onAuthStateChange((_event, session) => {
+    if (currentUser) { const { data: adminResult } = await supabase.rpc('is_admin'); isAdmin = adminResult === true; }
+    supabase.auth.onAuthStateChange(async (_event, session) => {
       currentUser = session?.user || null;
+      isAdmin = false;
+      if (currentUser) { const { data: adminResult } = await supabase.rpc('is_admin'); isAdmin = adminResult === true; }
       if (activeView === 'admin') renderAdmin();
-      if (activeView === 'community') renderPostFeed();
+      if (activeView === 'community') renderCommunity();
       if (activeView === 'fragen') renderQuestionList();
     });
     await loadAnnouncements();
@@ -417,7 +434,7 @@ function subscribeRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => { if (activeView === 'community') loadPosts(); })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => { if (activeView === 'community') loadPosts(); })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => { if (activeView === 'community') loadPosts(); })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'questions' }, () => { if (activeView === 'fragen') loadQuestions(); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'questions' }, () => { if (activeView === 'fragen') loadQuestions(); if (activeView === 'admin') loadAdminQuestions(); })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => loadAnnouncements())
     .subscribe();
 }

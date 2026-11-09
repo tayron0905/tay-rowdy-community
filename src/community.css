@@ -107,3 +107,4 @@
   @keyframes card-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -8px; } }
   @keyframes note-float { 0%, 100% { margin-block: 0; } 50% { margin-block: -5px; } }
 }
+.owner-badge{display:inline-block;margin-left:7px;padding:3px 7px;border:1px solid #83a84b;border-radius:999px;background:#28331d;color:#c5e88b;font-size:9px;font-weight:700;letter-spacing:.08em;vertical-align:middle}
