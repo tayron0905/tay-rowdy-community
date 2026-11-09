@@ -27,22 +27,30 @@ grant select on public.server_ratings, public.server_comments to anon, authentic
 grant insert (username, rating, client_id) on public.server_ratings to anon, authenticated;
 grant insert (username, content, client_id) on public.server_comments to anon, authenticated;
 
-drop policy if exists "server bewertungen lesen" on public.server_ratings;
-create policy "server bewertungen lesen" on public.server_ratings
-  for select to anon, authenticated using (true);
-drop policy if exists "server bewertungen schreiben" on public.server_ratings;
-create policy "server bewertungen schreiben" on public.server_ratings
-  for insert to anon, authenticated with check (true);
-drop policy if exists "server kommentare lesen" on public.server_comments;
-create policy "server kommentare lesen" on public.server_comments
-  for select to anon, authenticated using (true);
-drop policy if exists "server kommentare schreiben" on public.server_comments;
-create policy "server kommentare schreiben" on public.server_comments
-  for insert to anon, authenticated with check (true);
+do $policies$
+begin
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'server_ratings' and policyname = 'server bewertungen lesen') then
+    execute $sql$create policy "server bewertungen lesen" on public.server_ratings for select to anon, authenticated using (true)$sql$;
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'server_ratings' and policyname = 'server bewertungen schreiben') then
+    execute $sql$create policy "server bewertungen schreiben" on public.server_ratings for insert to anon, authenticated with check (true)$sql$;
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'server_comments' and policyname = 'server kommentare lesen') then
+    execute $sql$create policy "server kommentare lesen" on public.server_comments for select to anon, authenticated using (true)$sql$;
+  end if;
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'server_comments' and policyname = 'server kommentare schreiben') then
+    execute $sql$create policy "server kommentare schreiben" on public.server_comments for insert to anon, authenticated with check (true)$sql$;
+  end if;
+end
+$policies$;
 
--- Gemeinsame Spam-Bremse für anonyme Einträge.
-create or replace function public.rate_limit() returns trigger
-language plpgsql security definer set search_path = '' as $$
+-- Anonyme Einträge werden pro Browser und global begrenzt.
+do $function$
+begin
+  if to_regprocedure('public.server_feedback_rate_limit()') is null then
+    execute $create_function$
+      create function public.server_feedback_rate_limit() returns trigger
+      language plpgsql security definer set search_path = '' as $body$
 declare
   per_client int;
   total int;
@@ -53,19 +61,23 @@ begin
     raise exception 'Gerade ist viel los, bitte gleich nochmal versuchen.';
   end if;
   execute format('select count(*) from public.%I where client_id = $1 and created_at > now() - interval ''1 minute''', tg_table_name)
-    using new.client_id into per_client;
+    into per_client using new.client_id;
   if per_client >= tg_argv[0]::int then
     raise exception 'Bitte nicht so schnell, warte kurz.';
   end if;
   return new;
-end $$;
-
-drop trigger if exists server_ratings_rate on public.server_ratings;
-create trigger server_ratings_rate before insert on public.server_ratings
-  for each row execute function public.rate_limit(2, 30);
-drop trigger if exists server_comments_rate on public.server_comments;
-create trigger server_comments_rate before insert on public.server_comments
-  for each row execute function public.rate_limit(5, 60);
+end
+      $body$;
+    $create_function$;
+  end if;
+  if not exists (select 1 from pg_trigger where tgname = 'server_ratings_rate' and tgrelid = 'public.server_ratings'::regclass and not tgisinternal) then
+    execute 'create trigger server_ratings_rate before insert on public.server_ratings for each row execute function public.server_feedback_rate_limit(2, 30)';
+  end if;
+  if not exists (select 1 from pg_trigger where tgname = 'server_comments_rate' and tgrelid = 'public.server_comments'::regclass and not tgisinternal) then
+    execute 'create trigger server_comments_rate before insert on public.server_comments for each row execute function public.server_feedback_rate_limit(5, 60)';
+  end if;
+end
+$function$;
 
 do $$
 begin
