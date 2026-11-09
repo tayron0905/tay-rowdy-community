@@ -5,7 +5,7 @@ export const config = {
   supabaseAnonKey: 'sb_publishable_GXg0fRcKosf8EBsMAJ7Cuw_tYDCD5c9',
   tiktokHandle: 'tay_rowdy',
   tiktokUrl: 'https://www.tiktok.com/@tay_rowdy',
-  serverAddress: 'boerboel.aternos.host',
+  serverAddress: 'tayronstadt.aternos.me',
   serverPort: 62855,
   serverStatusUrl: './server-status.json',
 };
