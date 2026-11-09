@@ -227,8 +227,9 @@ async function addLike(postId) {
 async function deleteRow(table, id, label) {
   if (!supabase || !currentUser) return;
   if (!window.confirm(`${label} wirklich löschen?`)) return;
-  const { error } = await supabase.from(table).delete().eq('id', id);
+  const { data, error } = await supabase.from(table).delete().eq('id', id).select('id');
   if (error) return toast(userError(error), 'error');
+  if (!data?.length) return toast(`${label} wurde nicht gelöscht. Prüfe, ob dein Konto in Supabase als Admin eingetragen ist.`, 'error');
   toast(`${label} wurde entfernt.`);
   if (table === 'posts' || table === 'comments') await loadPosts();
   if (table === 'questions') { await loadQuestions(); await loadAdminQuestions(); }
