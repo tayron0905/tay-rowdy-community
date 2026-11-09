@@ -1,4 +1,4 @@
--- Tay Rowdy TikTok-Community
+-- Tay Rowdy Community
 -- Erstellt die Tabellen für Feed-Beiträge, Antworten, Likes, Fragen und Updates.
 -- Das Skript kann erneut ausgeführt werden; vorhandene Inhalte werden nicht gelöscht.
 
