@@ -49,14 +49,14 @@ def read_exact(stream, length):
     return bytes(result)
 
 
-def ping():
+def ping(ip):
     address = HOST.encode("utf-8")
     handshake = b"\x00" + write_varint(767) + write_varint(len(address)) + address
     handshake += struct.pack(">H", PORT) + b"\x01"
     packet = write_varint(len(handshake)) + handshake + b"\x01\x00"
 
-    with socket.create_connection((HOST, PORT), timeout=7) as stream:
-        stream.settimeout(7)
+    with socket.create_connection((ip, PORT), timeout=4) as stream:
+        stream.settimeout(4)
         stream.sendall(packet)
         read_varint(stream)  # response packet length
         if read_varint(stream) != 0:
@@ -64,31 +64,48 @@ def ping():
         response_length = read_varint(stream)
         response = json.loads(read_exact(stream, response_length).decode("utf-8"))
 
+    version = response.get("version", {})
+    version_name = str(version.get("name", "")).lower()
+    if version.get("protocol") == -1 or "offline" in version_name:
+        return {"online": False, "players": None}
     players = response.get("players", {})
-    return {"online": True, "players": players.get("online")}
+    return {
+        "online": True,
+        "players": {"online": players.get("online"), "max": players.get("max")},
+    }
 
 
 def main():
-    result = None
+    outcomes = []
     refused = 0
-    for attempt in range(3):
+    try:
+        addresses = sorted({
+            item[4][0]
+            for item in socket.getaddrinfo(HOST, PORT, type=socket.SOCK_STREAM)
+            if item[0] == socket.AF_INET
+        })
+    except OSError:
+        addresses = []
+
+    for ip in addresses:
         try:
-            result = ping()
-            break
+            outcomes.append(ping(ip))
         except ConnectionRefusedError:
             refused += 1
         except (OSError, ValueError, json.JSONDecodeError):
             pass
-        if attempt < 2:
-            time.sleep(3)
+        time.sleep(1)
 
-    # A refused port on all attempts is a confirmed offline result. Timeouts or
-    # other network errors are inconclusive, so don't falsely mark Aternos down.
-    if result is None:
-        if refused == 3:
-            result = {"online": False, "players": None}
-        else:
-            result = {"online": None, "players": None}
+    online_count = sum(item["online"] for item in outcomes)
+    offline_count = len(outcomes) - online_count
+    if online_count > len(addresses) / 2:
+        result = next(item for item in outcomes if item["online"])
+    elif offline_count + refused > len(addresses) / 2 and addresses:
+        result = {"online": False, "players": None}
+    elif not addresses and refused:
+        result = {"online": False, "players": None}
+    else:
+        result = {"online": None, "players": None}
 
     previous = {}
     if STATUS_FILE.exists():
