@@ -15,9 +15,6 @@ let announcements = [];
 let comments = [];
 let likes = [];
 let busy = false;
-let serverRatings = [];
-let serverComments = [];
-let serverStatus = null;
 
 function getClientId() {
   let value = localStorage.getItem(clientKey);
@@ -63,13 +60,12 @@ function renderShell() {
     <header class="topbar"><a class="brand" href="#home" data-view="home"><span class="brand-mark">TR</span><span>TAY ROWDY <small>COMMUNITY</small></span></a>
       <button class="menu-toggle" aria-label="Navigation öffnen" aria-expanded="false"><i></i><i></i></button>
       <nav class="nav-links" aria-label="Hauptnavigation">
-        <a href="#home" data-view="home">Start</a><a href="#server" data-view="server">Minecraft-Server</a><a href="#community" data-view="community">Community</a><a href="#fragen" data-view="fragen">Frag mich!</a>
+        <a href="#home" data-view="home">Start</a><a href="#community" data-view="community">Community</a><a href="#fragen" data-view="fragen">Frag mich!</a>
       </nav>
       <a class="nav-cta" href="${escapeHtml(config.tiktokUrl)}" target="_blank" rel="noopener noreferrer">TikTok ansehen <span>↗</span></a>
     </header>
     <main>
       <section class="view" id="view-home"></section>
-      <section class="view hidden" id="view-server"></section>
       <section class="view hidden" id="view-community"></section>
       <section class="view hidden" id="view-fragen"></section>
       <section class="view hidden" id="view-recht"></section>
@@ -98,11 +94,10 @@ function onNavigation(event) {
 function navigate(view) {
   activeView = view;
   document.querySelectorAll('.view').forEach((element) => element.classList.add('hidden'));
-  const id = ['home', 'server', 'community', 'fragen', 'recht', 'admin'].includes(view) ? view : 'recht';
+  const id = ['home', 'community', 'fragen', 'recht', 'admin'].includes(view) ? view : ['regeln', 'impressum', 'datenschutz'].includes(view) ? 'recht' : 'home';
   document.querySelector(`#view-${id}`)?.classList.remove('hidden');
   document.querySelectorAll('.nav-links a').forEach((link) => link.classList.toggle('active', link.dataset.view === view));
   if (id === 'home') renderHome();
-  if (id === 'server') renderServer();
   if (id === 'community') renderCommunity();
   if (id === 'fragen') renderQuestions();
   if (id === 'admin') renderAdmin();
@@ -111,64 +106,10 @@ function navigate(view) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function renderServer() {
-  const target = document.querySelector('#view-server');
-  target.innerHTML = `<section class="server-hero wrap"><div class="server-copy"><div class="eyebrow"><span class="status-dot"></span> TAYRONSTADT · MINECRAFT SERVER</div><h1>Dein nächstes<br><em>Abenteuer.</em></h1><p class="hero-lede">Komm auf den Server, bau mit uns und werde Teil von Tayronstadt.</p><div class="server-status" id="server-status"><span class="status-pulse"></span><span>Status wird geprüft …</span></div><div class="server-connect"><div><span class="connect-label">SERVER-IP</span><strong>${escapeHtml(config.serverAddress)}</strong><small class="alias-address">Aternos-Adresse, wird beim Serverstart aktualisiert</small></div><button class="copy-button" data-copy="${escapeHtml(config.serverAddress)}:${config.serverPort}">IP kopieren</button></div><div class="server-port"><span>JAVA EDITION</span><strong>Port ${config.serverPort}</strong><span class="dynamic-note">Adresse: ${escapeHtml(config.serverAddress)}:${config.serverPort}</span></div><div class="server-actions"><a class="button button-primary" href="https://aternos.org/servers/WkfbnpChW7Z11vmP/" target="_blank" rel="noopener noreferrer">Aternos öffnen ↗</a><button class="button button-outline" id="refresh-status">Status aktualisieren</button></div></div><div class="server-art"><div class="block-scene"><div class="sun"></div><div class="pixel-cloud cloud-a"></div><div class="pixel-cloud cloud-b"></div><div class="mountain mountain-back"></div><div class="mountain mountain-front"></div><div class="grass-block"></div><span class="scene-label">TAYRONSTADT</span></div><div class="server-stat" id="player-count"><span>ONLINE SPIELER</span><strong>—</strong></div></div></section>
-  <section class="server-community wrap"><div class="section-heading"><div><div class="eyebrow">DEINE MEINUNG ZÄHLT</div><h2>Bewerten & <em>kommentieren</em></h2></div><span class="heading-mark">✳</span></div><div class="server-feedback-grid"><form id="rating-form" class="feedback-card"><div class="eyebrow">SERVER BEWERTEN</div><h3>Wie gefällt's dir?</h3><div class="star-picker" role="radiogroup" aria-label="Bewertung von 1 bis 5 Sternen">${[1,2,3,4,5].map(n=>`<button type="button" class="star-choice" data-rating="${n}" aria-label="${n} Sterne">★</button>`).join('')}</div><input type="hidden" name="rating" value="5"><label class="field-label" for="rating-name">Dein Name</label><input id="rating-name" name="username" maxlength="24" minlength="2" placeholder="Minecraft-Name oder Nickname" value="${escapeHtml(getSavedName())}" required><button class="button button-primary" type="submit">Bewertung abgeben ↗</button><div class="rating-summary" id="rating-summary"></div></form><div class="feedback-card"><div class="eyebrow">SERVER-KOMMENTARE</div><h3>Was geht in Tayronstadt?</h3><form id="server-comment-form" class="server-comment-form"><input name="username" maxlength="24" minlength="2" placeholder="Dein Name" value="${escapeHtml(getSavedName())}" required aria-label="Dein Name"><textarea name="content" maxlength="500" rows="3" placeholder="Teile deinen Eindruck mit der Community …" required aria-label="Dein Kommentar"></textarea><div class="compose-bottom"><span class="char-count" data-count="server-comment-content">0 / 500</span><button class="button button-primary" type="submit">Kommentieren ↗</button></div></form><div id="server-comments" class="server-comments">${loading()}</div></div></div></section>`;
-  const ratingForm = target.querySelector('#rating-form');
-  target.querySelectorAll('.star-choice').forEach(button => button.addEventListener('click', () => { ratingForm.elements.rating.value = button.dataset.rating; target.querySelectorAll('.star-choice').forEach(star => star.classList.toggle('selected', Number(star.dataset.rating) <= Number(button.dataset.rating))); }));
-  target.querySelectorAll('.star-choice').forEach(star => star.classList.toggle('selected', Number(star.dataset.rating) <= 5));
-  ratingForm.addEventListener('submit', submitServerRating);
-  target.querySelector('#server-comment-form').addEventListener('submit', submitServerComment);
-  const commentText = target.querySelector('textarea[name="content"]'); commentText.id = 'server-comment-content'; attachFormCounters();
-  target.querySelector('[data-copy]').addEventListener('click', async event => { try { await navigator.clipboard.writeText(event.currentTarget.dataset.copy); toast('Server-Adresse kopiert!'); } catch { toast('Kopieren nicht möglich – markiere die IP und kopiere sie.', 'error'); } });
-  target.querySelector('#refresh-status').addEventListener('click', loadServerStatus);
-  loadServerStatus(); loadServerFeedback();
-}
-
-async function loadServerStatus() {
-  const boxes = [document.querySelector('#server-status'), document.querySelector('#home-server-status')].filter(Boolean); if (!boxes.length) return;
-  boxes.forEach(box => { box.classList.remove('is-online','is-offline','is-unknown'); box.innerHTML = '<span class="status-pulse"></span><span>Status wird geprüft …</span>'; });
-  try {
-    const response = await fetch(`${config.serverStatusUrl}?t=${Date.now()}`, { cache: 'no-store' }); if (!response.ok) throw new Error('Statusdienst nicht erreichbar');
-    serverStatus = await response.json();
-    const known = serverStatus.online === true || serverStatus.online === false;
-    boxes.forEach(box => { box.classList.toggle('is-online', serverStatus.online === true); box.classList.toggle('is-offline', serverStatus.online === false); box.classList.toggle('is-unknown', !known); box.innerHTML = `<span class="status-pulse"></span><strong>${serverStatus.online === true ? 'ONLINE' : serverStatus.online === false ? 'OFFLINE' : 'STATUS UNKLAR'}</strong><span>${serverStatus.online === true ? 'Minecraft-Server antwortet' : serverStatus.online === false ? 'Minecraft-Server antwortet nicht' : 'Erreichbarkeit konnte nicht sicher geprüft werden'}</span><small>Automatische Ping-Prüfung etwa alle 5 Min.</small>`; });
-    const count = document.querySelector('#player-count'); if (count) count.innerHTML = `<span>ONLINE SPIELER</span><strong>${serverStatus.online === true ? `${serverStatus.players?.online ?? 0}${serverStatus.players?.max ? ` / ${serverStatus.players.max}` : ''}` : '—'}</strong>`;
-  } catch { boxes.forEach(box => { box.classList.add('is-unknown'); box.innerHTML = '<span class="status-pulse"></span><strong>STATUS UNKLAR</strong><span>Erreichbarkeit konnte nicht geprüft werden</span>'; }); }
-}
-
-async function loadServerFeedback() {
-  const list = document.querySelector('#server-comments'); if (!list) return;
-  if (!supabase) { list.innerHTML = setupMessage(); document.querySelector('#rating-summary').textContent = 'Für dauerhafte Bewertungen Supabase verbinden.'; return; }
-  const [ratingResult, commentResult] = await Promise.all([supabase.from('server_ratings').select('*').order('created_at',{ascending:false}).limit(100),supabase.from('server_comments').select('*').order('created_at',{ascending:false}).limit(50)]);
-  if (ratingResult.error || commentResult.error) { list.innerHTML = errorMessage(ratingResult.error?.message || commentResult.error?.message); return; }
-  serverRatings = ratingResult.data || []; serverComments = commentResult.data || [];
-  const average = serverRatings.length ? (serverRatings.reduce((sum,item)=>sum+item.rating,0)/serverRatings.length).toFixed(1) : '—';
-  document.querySelector('#rating-summary').innerHTML = `<strong>★ ${average}</strong> <span>aus ${serverRatings.length} ${serverRatings.length === 1 ? 'Bewertung' : 'Bewertungen'}</span>`;
-  list.innerHTML = serverComments.length ? serverComments.map(item=>`<article class="server-comment"><div class="post-avatar">${initialFor(item.username)}</div><div><strong>${escapeHtml(item.username)}</strong><small>${relativeDate(item.created_at)}</small><p>${escapeHtml(item.content)}</p></div></article>`).join('') : '<div class="empty-state compact"><p>Noch keine Kommentare. Fang du an!</p></div>';
-}
-
-async function submitServerRating(event) {
-  event.preventDefault(); if (!supabase) return toast('Bitte zuerst Supabase verbinden, damit Bewertungen gespeichert werden.', 'error');
-  const data = new FormData(event.currentTarget); const username=String(data.get('username')).trim(); const rating=Number(data.get('rating'));
-  if(username.length<2) return toast('Der Name muss mindestens 2 Zeichen lang sein.', 'error');
-  const {error}=await supabase.from('server_ratings').insert({username,rating,client_id:clientId}); if(error) return toast(userError(error),'error');
-  localStorage.setItem('tayrowdy-community-name',username); toast('Danke für deine Bewertung!'); await loadServerFeedback();
-}
-
-async function submitServerComment(event) {
-  event.preventDefault(); if (!supabase) return toast('Bitte zuerst Supabase verbinden, damit Kommentare gespeichert werden.', 'error');
-  const form=event.currentTarget,data=new FormData(form),username=String(data.get('username')).trim(),content=String(data.get('content')).trim();
-  if(username.length<2||!content) return toast('Bitte gib einen Namen und Kommentar ein.', 'error');
-  const {error}=await supabase.from('server_comments').insert({username,content,client_id:clientId}); if(error) return toast(userError(error),'error');
-  localStorage.setItem('tayrowdy-community-name',username); form.elements.content.value=''; updateCounts(); toast('Dein Kommentar wurde veröffentlicht.'); await loadServerFeedback();
-}
-
 function renderHome() {
   const target = document.querySelector('#view-home');
   target.innerHTML = `
-    <section class="hero wrap"><div class="hero-copy"><div class="eyebrow"><span class="status-dot"></span> DER ORT FÜR UNSERE COMMUNITY</div><h1>Hey, schön<br />dass <em>du da bist.</em></h1><p class="hero-lede">Hier treffen sich alle, die bei TikTok dabei sind. Teile deine Gedanken, stell deine Fragen und lern die Community kennen.</p><div class="home-server-status" id="home-server-status"><span class="status-pulse"></span><span>Minecraft-Serverstatus wird geprüft …</span></div><div class="hero-actions"><a class="button button-primary" href="#server" data-view="server">Zum Minecraft-Server <span>↗</span></a><a class="button button-outline" href="#community" data-view="community">Zur Community <span>↗</span></a><a class="button button-quiet" href="${escapeHtml(config.tiktokUrl)}" target="_blank" rel="noopener noreferrer">TikTok-Profil ansehen <span>↗</span></a></div><div class="hero-proof"><div class="avatar-stack"><span>T</span><span>R</span><span>✦</span></div><span>Ein Platz für <strong>alle aus der Community</strong></span></div></div>
+    <section class="hero wrap"><div class="hero-copy"><div class="eyebrow"><span class="status-dot"></span> TIKTOK COMMUNITY</div><h1>Hey, schön<br />dass <em>du da bist.</em></h1><p class="hero-lede">Hier trifft sich die Community von @${escapeHtml(config.tiktokHandle)}. Teile deine Gedanken, schreib Beiträge und komm mit anderen ins Gespräch.</p><div class="hero-actions"><a class="button button-primary" href="#community" data-view="community">Zur Community <span>↗</span></a><a class="button button-quiet" href="${escapeHtml(config.tiktokUrl)}" target="_blank" rel="noopener noreferrer">TikTok-Profil ansehen <span>↗</span></a></div><div class="hero-proof"><div class="avatar-stack"><span>T</span><span>R</span><span>✦</span></div><span>Ein Platz für <strong>alle aus der Community</strong></span></div></div>
     <div class="hero-art"><div class="hero-orbit orbit-one"></div><div class="hero-orbit orbit-two"></div><div class="hero-card"><div class="profile-photo"><div class="profile-initials">TR</div><span class="online-badge"></span></div><div class="profile-name">Tay Rowdy <span class="verified">✦</span></div><div class="profile-handle">@${escapeHtml(config.tiktokHandle)}</div><div class="profile-divider"></div><div class="profile-tag"><span class="live-dot"></span> CREATOR & COMMUNITY</div><a class="profile-link" href="${escapeHtml(config.tiktokUrl)}" target="_blank" rel="noopener noreferrer">Auf TikTok folgen <span>↗</span></a></div><div class="float-note note-top"><span class="note-icon">✳</span> Echte Gespräche</div><div class="float-note note-bottom"><span class="note-icon pink-icon">♡</span> Ein guter Vibe</div></div></section>
     <section class="announcement-section wrap"><div class="section-heading"><div><div class="eyebrow">DAS GIBT'S NEUES</div><h2>Community-<em>Updates</em></h2></div><span class="heading-mark">✳</span></div><div class="announcement-list" id="announcement-list"></div></section>
     <section class="home-cta wrap"><div><div class="eyebrow">DEIN PLATZ IST FREI</div><h2>Mach mit. <em>Sei dabei.</em></h2><p>Schreib deinen ersten Beitrag und lern die Community kennen.</p></div><a class="button button-primary" href="#community" data-view="community">Jetzt mitmachen <span>↗</span></a></section>`;
@@ -438,7 +379,7 @@ function attachFormCounters() {
 function updateCounts() { document.querySelectorAll('[data-count]').forEach((counter) => { const field = document.getElementById(counter.dataset.count); if (field) counter.textContent = `${field.value.length} / ${field.maxLength}`; }); }
 
 function setupMessage() {
-  return '<div class="setup-notice"><span>⚙</span><div><strong>Supabase noch nicht verbunden</strong><p>Trage die Projekt-URL und den öffentlichen Schlüssel in <code>src/config.js</code> ein. Danach erscheinen Beiträge und Fragen hier.</p></div></div>';
+  return '<div class="setup-notice"><span>⚙</span><div><strong>Supabase noch nicht verbunden</strong><p>Trage die Projekt-URL und den öffentlichen Schlüssel in <code>src/config.js</code> ein. Danach erscheint der Community-Feed hier.</p></div></div>';
 }
 function errorMessage(message) { return `<div class="error-notice">Verbindung fehlgeschlagen: ${escapeHtml(message)}<br /><small>Prüfe die Supabase-Einstellungen und die Datenbankregeln.</small></div>`; }
 function userError(error) {
@@ -464,7 +405,6 @@ async function initialize() {
     await loadAnnouncements();
     subscribeRealtime();
   }
-  loadServerStatus();
   const view = location.hash.slice(1) || 'home';
   navigate(view);
 }
@@ -478,10 +418,7 @@ function subscribeRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => { if (activeView === 'community') loadPosts(); })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'questions' }, () => { if (activeView === 'fragen') loadQuestions(); })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, () => loadAnnouncements())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'server_ratings' }, () => { if (activeView === 'server') loadServerFeedback(); })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'server_comments' }, () => { if (activeView === 'server') loadServerFeedback(); })
     .subscribe();
 }
 
 initialize();
-window.setInterval(loadServerStatus, 60000);

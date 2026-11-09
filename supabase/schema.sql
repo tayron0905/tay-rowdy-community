@@ -138,32 +138,3 @@ create policy "admin loescht" on public.announcements for delete to authenticate
 alter publication supabase_realtime add table
   public.posts, public.comments, public.likes, public.questions, public.announcements;
 
--- Minecraft-Serverseite -------------------------------------
-create table public.server_ratings (
-  id uuid primary key default gen_random_uuid(),
-  username text not null check (char_length(btrim(username)) between 2 and 24),
-  rating int not null check (rating between 1 and 5),
-  client_id uuid not null,
-  created_at timestamptz not null default now()
-);
-create table public.server_comments (
-  id uuid primary key default gen_random_uuid(),
-  username text not null check (char_length(btrim(username)) between 2 and 24),
-  content text not null check (char_length(btrim(content)) between 1 and 500),
-  client_id uuid not null,
-  created_at timestamptz not null default now()
-);
-create index on public.server_ratings (created_at desc);
-create index on public.server_comments (created_at desc);
-alter table public.server_ratings enable row level security;
-alter table public.server_comments enable row level security;
-grant select on public.server_ratings, public.server_comments to anon, authenticated;
-grant insert (username, rating, client_id) on public.server_ratings to anon, authenticated;
-grant insert (username, content, client_id) on public.server_comments to anon, authenticated;
-create policy "server bewertungen lesen" on public.server_ratings for select to anon, authenticated using (true);
-create policy "server bewertungen schreiben" on public.server_ratings for insert to anon, authenticated with check (true);
-create policy "server kommentare lesen" on public.server_comments for select to anon, authenticated using (true);
-create policy "server kommentare schreiben" on public.server_comments for insert to anon, authenticated with check (true);
-create trigger server_ratings_rate before insert on public.server_ratings for each row execute function public.rate_limit(2, 30);
-create trigger server_comments_rate before insert on public.server_comments for each row execute function public.rate_limit(5, 60);
-alter publication supabase_realtime add table public.server_ratings, public.server_comments;
