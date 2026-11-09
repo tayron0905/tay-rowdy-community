@@ -7,7 +7,7 @@ export const config = {
   tiktokUrl: 'https://www.tiktok.com/@tay_rowdy',
   serverAddress: 'boerboel.aternos.host',
   serverPort: 62855,
-  serverStatusUrl: 'https://api.mcsrvstat.us/3/boerboel.aternos.host:62855',
+  serverStatusUrl: './server-status.json',
 };
 
 export const isConfigured = Boolean(config.supabaseUrl && config.supabaseAnonKey);

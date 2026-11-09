@@ -128,13 +128,14 @@ function renderServer() {
 
 async function loadServerStatus() {
   const boxes = [document.querySelector('#server-status'), document.querySelector('#home-server-status')].filter(Boolean); if (!boxes.length) return;
-  boxes.forEach(box => { box.classList.remove('is-online','is-offline'); box.innerHTML = '<span class="status-pulse"></span><span>Status wird geprüft …</span>'; });
+  boxes.forEach(box => { box.classList.remove('is-online','is-offline','is-unknown'); box.innerHTML = '<span class="status-pulse"></span><span>Status wird geprüft …</span>'; });
   try {
-    const response = await fetch(config.serverStatusUrl, { cache: 'no-store' }); if (!response.ok) throw new Error('Statusdienst nicht erreichbar');
+    const response = await fetch(`${config.serverStatusUrl}?t=${Date.now()}`, { cache: 'no-store' }); if (!response.ok) throw new Error('Statusdienst nicht erreichbar');
     serverStatus = await response.json();
-    boxes.forEach(box => { box.classList.toggle('is-online', !!serverStatus.online); box.classList.toggle('is-offline', !serverStatus.online); box.innerHTML = `<span class="status-pulse"></span><strong>${serverStatus.online ? 'ONLINE' : 'OFFLINE'}</strong><span>${serverStatus.online ? 'Minecraft-Server ist erreichbar' : 'Minecraft-Server ist gerade offline'}</span><small>Automatisch abgefragt · ${new Intl.DateTimeFormat('de-DE',{hour:'2-digit',minute:'2-digit'}).format(new Date())} (Statusdienst aktualisiert etwa alle 5 Min.)</small>`; });
-    const count = document.querySelector('#player-count'); if (count) count.innerHTML = `<span>ONLINE SPIELER</span><strong>${serverStatus.online ? `${serverStatus.players?.online ?? 0}${serverStatus.players?.max ? ` / ${serverStatus.players.max}` : ''}` : '—'}</strong>`;
-  } catch { boxes.forEach(box => { box.classList.add('is-offline'); box.innerHTML = '<span class="status-pulse"></span><strong>STATUS NICHT VERFÜGBAR</strong><span>Bitte später erneut versuchen</span>'; }); }
+    const known = serverStatus.online === true || serverStatus.online === false;
+    boxes.forEach(box => { box.classList.toggle('is-online', serverStatus.online === true); box.classList.toggle('is-offline', serverStatus.online === false); box.classList.toggle('is-unknown', !known); box.innerHTML = `<span class="status-pulse"></span><strong>${serverStatus.online === true ? 'ONLINE' : serverStatus.online === false ? 'OFFLINE' : 'STATUS UNKLAR'}</strong><span>${serverStatus.online === true ? 'Minecraft-Server antwortet' : serverStatus.online === false ? 'Minecraft-Server antwortet nicht' : 'Erreichbarkeit konnte nicht sicher geprüft werden'}</span><small>Automatische Ping-Prüfung etwa alle 5 Min.</small>`; });
+    const count = document.querySelector('#player-count'); if (count) count.innerHTML = `<span>ONLINE SPIELER</span><strong>${serverStatus.online === true ? `${serverStatus.players?.online ?? 0}${serverStatus.players?.max ? ` / ${serverStatus.players.max}` : ''}` : '—'}</strong>`;
+  } catch { boxes.forEach(box => { box.classList.add('is-unknown'); box.innerHTML = '<span class="status-pulse"></span><strong>STATUS UNKLAR</strong><span>Erreichbarkeit konnte nicht geprüft werden</span>'; }); }
 }
 
 async function loadServerFeedback() {
@@ -483,4 +484,4 @@ function subscribeRealtime() {
 }
 
 initialize();
-window.setInterval(loadServerStatus, 300000);
+window.setInterval(loadServerStatus, 60000);
