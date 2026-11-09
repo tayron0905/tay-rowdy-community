@@ -94,9 +94,17 @@ function onNavigation(event) {
 }
 
 function navigate(view) {
-  activeView = view;
-  document.querySelectorAll('.view').forEach((element) => element.classList.add('hidden'));
   const id = ['home', 'community', 'fragen', 'recht', 'admin'].includes(view) ? view : ['regeln', 'impressum', 'datenschutz'].includes(view) ? 'recht' : 'home';
+  const leavingAdmin = activeView === 'admin' && id !== 'admin';
+  activeView = id;
+  if (leavingAdmin && currentUser && supabase) {
+    currentUser = null;
+    isAdmin = false;
+    supabase.auth.signOut({ scope: 'local' }).then(({ error }) => {
+      if (error) toast('Automatische Abmeldung fehlgeschlagen. Bitte melde dich manuell ab.', 'error');
+    });
+  }
+  document.querySelectorAll('.view').forEach((element) => element.classList.add('hidden'));
   document.querySelector(`#view-${id}`)?.classList.remove('hidden');
   document.querySelectorAll('.nav-links a').forEach((link) => link.classList.toggle('active', link.dataset.view === view));
   if (id === 'home') renderHome();
